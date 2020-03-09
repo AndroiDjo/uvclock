@@ -24,7 +24,6 @@
 #include <TimeLib.h>
 #include <Servo.h>
 #include "LowPower.h"
-//RTC_DS1307 RTC;
 
 // delete or mark the next line as comment if you don't need these
 //#define CALIBRATION      // enable calibration mode
@@ -40,7 +39,7 @@
 // When in calibration mode, adjust the NULL-values so that the servo arms are at all times parallel
 // either to the X or Y axis
 #define SERVOLEFTNULL 1685
-#define SERVORIGHTNULL 875
+#define SERVORIGHTNULL 975
 
 /*
 #define SERVOFAKTORLEFT 660
@@ -59,7 +58,6 @@
 const int wakeUpPin = 3;
 const int btnPin = 7;
 const int powerTransistor = 6;
-const int clockTransistor = 8;
 
 
 // length of arms
@@ -83,17 +81,10 @@ const int clockTransistor = 8;
 #include <RtcDS1302.h>
 ThreeWire myWire(4,5,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
-// for instructions on how to hook up a real time clock,
-// see here -> http://www.pjrc.com/teensy/td_libs_DS1307RTC.html
-// DS1307RTC works with the DS1307, DS1337 and DS3231 real time clock chips.
-// Please run the SetTime example to initialize the time on new RTC chips and begin running.
-
-//#include <Wire.h>
-//#include <DS1307RTC.h> // see http://playground.arduino.cc/Code/time
 #endif
 
-Servo servo2;  //
-Servo servo3;  //
+Servo servo2;
+Servo servo3;
 
 volatile double lastX = 75;
 volatile double lastY = 47.5;
@@ -108,7 +99,6 @@ void setup()
   pinMode(LASER, OUTPUT);
   pinMode(wakeUpPin, INPUT);
   pinMode(powerTransistor, OUTPUT);
-  pinMode(clockTransistor, OUTPUT);
   pinMode(btnPin, INPUT_PULLUP);
   Rtc.Begin();
 }
@@ -191,12 +181,6 @@ void _DS1302_start( void)
   delayMicroseconds( 4);           // tCC = 4us
 }
 
-
-// --------------------------------------------------------
-// _DS1302_stop
-//
-// A helper function to finish the communication.
-//
 void _DS1302_stop(void)
 {
   // Set CE low
@@ -420,10 +404,6 @@ void number(float bx, float by, int num, float scale) {
     digitalWrite(LASER, LOW);
     break;
   case 4:
-
-    //scale = scale 0.9;
-    //by = by - 2;
-    //drawTo(bx + 10 * scale, by + 0 * scale);
     drawTo(bx + 10 * scale, by + 20 * scale);
 
 
@@ -447,7 +427,6 @@ void number(float bx, float by, int num, float scale) {
     digitalWrite(LASER, LOW);
     break;
   case 6:
-    //scale = scale * 0.9;
     by = by + 1;
     drawTo(bx + 4 * scale, by + 10 * scale);
     digitalWrite(LASER, HIGH);
@@ -481,7 +460,6 @@ void number(float bx, float by, int num, float scale) {
     bogenUZS(bx + 7 * scale, by + 15 * scale, 5 * scale, 4, -0.5, 1);
     drawTo(bx + 5 * scale, by + 0);
     digitalWrite(LASER, LOW);
-    //lift(1);
     break;
 
 
@@ -497,7 +475,6 @@ void number(float bx, float by, int num, float scale) {
     digitalWrite(LASER, HIGH);
     delay(50);
     digitalWrite(LASER, LOW);
-    //lift(1);
     break;
 
   }
@@ -558,9 +535,7 @@ void loop()
   detachInterrupt(1);
 
   digitalWrite(powerTransistor, HIGH);
-  digitalWrite(clockTransistor, HIGH);
   serialLoop();
-  //tmElements_t tm;
   #ifdef CALIBRATION
     if (!servo2.attached()) servo2.attach(SERVOPINLEFT);
     if (!servo3.attached()) servo3.attach(SERVOPINRIGHT);
@@ -577,55 +552,44 @@ void loop()
     }
 
   #endif
-  int i = 0;
+    int i = 0;
+    if (!servo2.attached()) servo2.attach(SERVOPINLEFT);
+    if (!servo3.attached()) servo3.attach(SERVOPINRIGHT);
 
-    //if (btn.isSingle()) {
-      if (!servo2.attached()) servo2.attach(SERVOPINLEFT);
-      if (!servo3.attached()) servo3.attach(SERVOPINRIGHT);
+    RtcDateTime now = Rtc.GetDateTime();
+      setTime(now.Hour(),now.Minute(),now.Second(),now.Day(),now.Month(),now.Year());
+      #ifdef NONMILITARY
+        if (tm.Hour < 1){
+          setTime(12,tm.Minute,tm.Second,tm.Day,tm.Month,tm.Year);
+        }
+        if (tm.Hour > 12){
+          setTime(tm.Hour-12,tm.Minute,tm.Second,tm.Day,tm.Month,tm.Year);
+        }
+      #endif
+    hour();
+    while ((i+1)*10 <= hour())
+    {
+      i++;
+    }
 
-      RtcDateTime now = Rtc.GetDateTime();
+    if (i != 0){
+      number(5, 25, i, 0.9);
+    }
+    number(21, 25, (hour()-i*10), 0.9);
+    number(35, 25, 11, 0.9);
 
-      //if (RTC.read(tm))
-      //{
-        setTime(now.Hour(),now.Minute(),now.Second(),now.Day(),now.Month(),now.Year());
-        #ifdef NONMILITARY
-          if (tm.Hour < 1){
-            setTime(12,tm.Minute,tm.Second,tm.Day,tm.Month,tm.Year);
-          }
-          if (tm.Hour > 12){
-            setTime(tm.Hour-12,tm.Minute,tm.Second,tm.Day,tm.Month,tm.Year);
-          }
-        #endif
-      //}
-      //setTime(17,01,0,0,0,0);
-      hour();
-      while ((i+1)*10 <= hour())
-      {
-        i++;
-      }
+    i=0;
+    while ((i+1)*10 <= minute())
+    {
+      i++;
+    }
+    number(44, 25, i, 0.9);
+    number(57, 25, (minute()-i*10), 0.9);
+    drawTo(55, 2);
+    last_min = minute();
+    delay(580);
 
-      if (i != 0){
-        number(5, 25, i, 0.9);
-      }
-      number(21, 25, (hour()-i*10), 0.9);
-      number(35, 25, 11, 0.9);
-
-      i=0;
-      while ((i+1)*10 <= minute())
-      {
-        i++;
-      }
-      number(44, 25, i, 0.9);
-      number(57, 25, (minute()-i*10), 0.9);
-      //lift(2);
-      drawTo(55, 2);
-      //lift(1);
-      last_min = minute();
-      delay(580);
-
-      servo2.detach();
-      servo3.detach();
-      digitalWrite(powerTransistor, LOW);
-      digitalWrite(clockTransistor, LOW);
-    //}
+    servo2.detach();
+    servo3.detach();
+    digitalWrite(powerTransistor, LOW);
   }
